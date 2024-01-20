@@ -1,0 +1,91 @@
+#!/bin/sh -e
+
+cmds="
+b3sum
+
+strip
+strings
+size
+readelf
+ranlib
+objdump
+objcopy
+nm
+ld
+dwp
+c++filt
+as
+ar
+addr2line
+
+yacc
+
+bzip2
+
+curl
+
+lex
+
+cc
+c99
+c++
+cpp
+
+kiss
+
+m4
+
+make
+
+gzip
+
+xz
+"
+
+libs="
+libcurl.so
+libcurl.a
+
+libstdc++.so
+libstdc++.a
+
+libc.so
+libc.a
+
+libssl.so
+libssl.a
+libcrypto.so
+libcrypto.a
+
+libz.so
+libz.a
+"
+
+command_and_libs_realpath="$(
+    {
+        for cmd in $cmds; do
+            command -v "$cmd"
+        done
+
+        for lib in $libs; do
+            cc -print-file-name="$lib"
+        done
+    } | xargs -I{} realpath {}
+)"
+
+for item in $command_and_libs_realpath; do
+    if ! [ -e "$item" ]; then
+        echo "ERROR: $item does not exist!"
+        exit 1
+    fi
+done
+
+kiss_db="${KISS_ROOT:-}/var/db/kiss/installed/"
+
+if [ -d "$kiss_db" ]; then
+    for item in $command_and_libs_realpath; do
+        if ! grep -Fxq "$item" "$kiss_db"*/manifest; then
+            echo "WARNING: $item exists but is not managed by kiss!"
+        fi
+    done
+fi

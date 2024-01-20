@@ -1,5 +1,8 @@
 #!/bin/sh -e
 
+echo "${1:?DESTDIR was not provided to this script.}"
+echo "${2:?VERSION was not provided to this script.}"
+
 cmds="
 b3sum
 
@@ -75,17 +78,25 @@ command_and_libs_realpath="$(
 
 for item in $command_and_libs_realpath; do
     if ! [ -e "$item" ]; then
-        echo "ERROR: $item does not exist!"
+        echo "ERROR: $item does not exist!" >&2
         exit 1
     fi
 done
 
-kiss_db="${KISS_ROOT:-}/var/db/kiss/installed/"
+kiss_db="${KISS_ROOT:-}/var/db/kiss/"
 
-if [ -d "$kiss_db" ]; then
+if [ -d "$kiss_db"installed/ ]; then
+    mkdir -p "$1/var/db/kiss/"
     for item in $command_and_libs_realpath; do
-        if ! grep -Fxq "$item" "$kiss_db"*/manifest; then
-            echo "WARNING: $item exists but is not managed by kiss!"
+        if ! grep -Fx "$item" "$kiss_db"installed/*/manifest; then
+            echo "WARNING: $item exists but is not managed by kiss!" >&2
         fi
-    done
+    done |
+        cut -d":" -f1 |
+        sort -u |
+        sed "s+/manifest$++" |
+        rev | cut -d'/' -f1 | rev > "$1/var/db/kiss/system"
+else
+    echo "ERROR: ${kiss_db}installed/ does not exist!" >&2
+    exit 1
 fi

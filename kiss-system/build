@@ -63,16 +63,25 @@ libcrypto.a
 libz.so
 libz.a
 "
+check_cmds(){
+    for cmd in $cmds; do
+        command -v "$cmd"
+    done
+}
+
+check_libs(){
+    for lib in $libs; do
+        cc -print-file-name="$lib"
+    done
+}
+
+check_cmds
+check_libs
 
 command_and_libs_realpath="$(
     {
-        for cmd in $cmds; do
-            command -v "$cmd"
-        done
-
-        for lib in $libs; do
-            cc -print-file-name="$lib"
-        done
+        check_cmds
+        check_libs
     } | xargs -I{} realpath {}
 )"
 

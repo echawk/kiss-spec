@@ -16,7 +16,7 @@ variables. What follows is a table of each environment variable along
 with a brief description of what the said variable does.
 
 | Variable       | Description |
-|----------------+-------------|
+|----------------|-------------|
 | KISS\_CHK      | Utility to use when checksumming sources |
 | KISS\_CHOICE   | Enables or Disables the alternatives system |
 | KISS\_COLOR    | Enable or Disable colors |
@@ -38,7 +38,7 @@ The following table denotes the valid values for each of the
 variables, where applicable.
 
 | Variable       | Default Value | Valid Values |
-|----------------+---------------+--------------|
+|----------------|---------------|--------------|
 | KISS\_CHK      | openssl       | openssl, sha256sum, sha256, shasum, digest |
 | KISS\_CHOICE   | 1             | 0, 1                                       |
 | KISS\_COLOR    | 1             | 0, 1                                       |

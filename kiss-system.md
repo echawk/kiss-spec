@@ -11,7 +11,7 @@ Generally speaking, the following is expected:
 * git
 * curl
 * An implementation of SSL
-* gzip, bzip2, xz, & zstd
+* gzip, bzip2, & xz
 
 It is conceivable to run kiss, the package manager, on any system
 that meets these requirements.

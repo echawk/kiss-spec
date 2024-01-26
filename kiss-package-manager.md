@@ -62,3 +62,80 @@ The environment variable **KISS_PATH** is responsible for determining
 where a particular package will be sourced from. Directories earlier
 in **KISS_PATH** will be searched first for the package, in a similar
 way to how the system PATH is searched for an executable.
+
+### Alternatives System
+
+The KISS package manager supports an on-the-fly alternatives system, which
+allows users to swap files from one package with another. This can be used
+to switch from busybox to the GNU coreutils, or to suckless' sbase/ubase.
+
+This behavior can also be explicitly disabled by the user, by setting the
+environment variable `KISS_CHOICE` equal to 0.
+
+Alternatives are stored in the `/var/db/kiss/choices/` directory, where
+packages which could be "swapped" to have their files stored.
+
+For example, if the user has *busybox* installed, then installs *util-linux*,
+and also has the alternatives system enabled, then the exectuable
+`/usr/bin/kill` in the *util-linux* will become
+`/var/db/kiss/choices/util-linux>usr>bin>kill` on the filesystem.
+
+The naming scheme for files in the choices directory is simply the
+name of the package, followed by the path to the file, with the "/"
+replaced with ">".
+
+### Commands
+
+The following table gives a very high level overview of each of the commands
+that kiss is expected to have.
+
+| Command      | # of Arguments  |  Description |
+|--------------|------------------|--------------|
+| alternatives | 0, 2            | List or swap alternatives |
+| build        | 1+              | Build the specified packages |
+| checksum     | 0, 1+           | Create the checksum file for a package port. |
+| download     | 1+              | Download the source files for the packages. |
+| install      | 1+              | Install the specified packages |
+| list         | 0, 1            | List all installed packages or return the specified package version |
+| preferred    | 0, 1            | List the preferred packages for utilities |
+| remove       | 1+              | Removes the specified packages |
+| search       | 1+              | Search for the specified packages |
+| update       | 0               | Update the list of system repositories. |
+| upgrade      | 0               | Build and install newer versions of out of date packages. |
+| version      | 0               | Prints version info |
+
+
+#### alternatives
+
+The `alternatives` command is responsible for managing and modifying the
+alternatives system.
+
+When ran with 0 arguments, the command simply lists out all of the files
+in `/var/db/kiss/choices/`.
+
+When ran with 2 arguments, the first is taken to be a package name, and the
+second is a file path. The command then checks to see if there is an
+alternative in the choices directory that meets the criteria, and if there
+is, will make the package's version of file path the default on the system.
+
+This will also modify the manifest of both of the involved packages, the current
+provider of the file and the new provider.
+
+
+#### build
+
+The `build` command is responsible for building ports.
+
+The command expects 1 or more arguments, and will follow the standard
+rules for search resolution. The actual build order for the packages is
+not what is specified to the build command, but instead the dependency
+order, where dependencies are built before their dependents.
+
+Additionally, before packages are built, any missing dependencies are
+attempted to be installed, and if no binary for the package exists, then
+they are to be added to the build queue as well.
+
+#### checksum
+
+The `checksum` command is responsible for creating the checksum file for
+a kiss package.

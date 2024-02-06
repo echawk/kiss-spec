@@ -139,3 +139,53 @@ they are to be added to the build queue as well.
 
 The `checksum` command is responsible for creating the checksum file for
 a kiss package.
+
+If ran with 0 arguments, the current directory is considered a kiss package
+and kiss attempts to generate a checksum file.
+
+If ran with 1 argument, the first package in KISS\_PATH which matches the provided
+argument will have it's checksum file generated.
+
+#### download
+
+The `download` command is responsible for downloading the sources of ports.
+If ran with 1+ arguments, the package manager attempts to download the remote
+sources for each of the packages that were supplied.
+
+#### install
+
+#### list
+
+#### preferred
+
+#### remove
+
+The `remove` command is responsible for removing installed packages.
+
+If ran with 1 argument, the package manager will simply check if the package is removeable
+and remove it accordingly.
+
+If ran with 2+ arguments, the package manager will attempt to remove the packages in the order
+that they were provided to the package manager.
+
+The `remove` command can be forced to remove a package, with disregard whether
+the package manager thinks it can be removed, by setting `KISS_FORCE` equal to **1**.
+
+#### search
+
+#### update
+
+The `update` command is responsible for updating the repositories within KISS\_PATH.
+For each repository, a check is done to determine whether or not it is a directory
+which belongs to a git repository, and if it does, then the new changes are pulled in.
+
+Directories which do not belong to a git repository have no special code, they are simply
+skipped over.
+
+#### upgrade
+
+The `upgrade` command is responsible for building the new version of packages and installing them.
+
+#### version
+
+The `version` command simply prints out the version of the package manager to standard output.

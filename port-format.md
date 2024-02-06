@@ -82,9 +82,27 @@ util-linux
 The `checksums` file contains the b3sums for each source in the
 sources file.
 
+Each line in the checksums file corresponds to a line in the sources file.
+
+If you would like to skip the checksumming of a source, you can replace
+the corresponding line with `SKIP` and the package manager will not
+validate the checksum of that source.
+
 ### pre-remove
 
+The `pre-remove` file is an optional file and is executed
+immediately before a package is removed. It's only requirement is that
+it be marked as executable.
+
+There is one argument provided, the package name.
+
 ### post-install
+
+The `post-install` file is an optional file and is executed
+immediately after a package is installed. It's only requirement is that
+it be marked as executable.
+
+There is one argument provided, the package name.
 
 ### build
 

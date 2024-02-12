@@ -7,19 +7,12 @@ cmds="
 b3sum
 
 strip
-strings
-size
 readelf
 ranlib
-objdump
-objcopy
 nm
 ld
-dwp
-c++filt
 as
 ar
-addr2line
 
 yacc
 
@@ -30,7 +23,6 @@ curl
 lex
 
 cc
-c99
 c++
 cpp
 
@@ -44,6 +36,20 @@ gzip
 
 xz
 "
+
+opt_cmds="
+strings
+size
+objdump
+objcopy
+dwp
+c++filt
+addr2line
+
+
+c99
+"
+
 
 libs="
 libcurl.so
@@ -77,6 +83,12 @@ check_libs(){
 
 check_cmds
 check_libs
+
+for cmd in $opt_cmds; do
+    if ! command -v "$cmd"; then
+        echo "WARNING: missing optional $cmd, some packages may have issues." >&2
+    fi
+done
 
 command_and_libs_realpath="$(
     {

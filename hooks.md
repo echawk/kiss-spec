@@ -1,7 +1,7 @@
 ## Hooks
 
 | hook          | arg1   | arg2     | arg3               | arg4           |
-|---------------+--------+----------+--------------------+----------------|
+|---------------|--------|----------|--------------------|----------------|
 | build-fail    | Type   | Package  | Build directory    |                |
 | post-build    | Type   | Package  | DESTDIR            |                |
 | post-install  | Type   | Package  | Installed database |                |

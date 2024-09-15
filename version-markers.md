@@ -43,7 +43,7 @@ variables, due to conflicts with upstream package sources.
 The final variation of the VERSION markers is as follows:
 
 | variable | replacement                                 |
-|----------+---------------------------------------------|
+|----------|---------------------------------------------|
 | VERSION  | Full version string                         |
 | MAJOR    | First component separated by '.'            |
 | MINOR    | Second component separated by '.'           |

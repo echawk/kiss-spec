@@ -63,6 +63,25 @@ where a particular package will be sourced from. Directories earlier
 in **KISS_PATH** will be searched first for the package, in a similar
 way to how the system PATH is searched for an executable.
 
+#### algorithm
+
+**Path Resolution (`pkg_find`)**:
+All commands utilizing package names must resolve them by searching directories in `$KISS_PATH`.
+1. Iterate through paths in `$KISS_PATH`.
+2. Return the *first* directory match containing a `version` file.
+3. Ignore subsequent matches (shadowing).
+4. Implicitly include the System Database (`$KISS_ROOT/var/db/kiss/`) as a search path for installed checks.
+
+**Dependency Resolution**:
+1. distinct_list = []
+2. For each package in query:
+a. Recurse through `depends` file.
+b. Detect Circular Dependency (abort if found).
+c. If package not in distinct\_list:
+i. Prepend to distinct\_list (Deepest dependency first).
+3. Return distinct\_list.
+
+
 ### Alternatives System
 
 The KISS package manager supports an on-the-fly alternatives system, which
@@ -121,6 +140,33 @@ is, will make the package's version of file path the default on the system.
 This will also modify the manifest of both of the involved packages, the current
 provider of the file and the new provider.
 
+##### algorithm
+```
+function cmd_alternatives(pkg_name):
+    # 1. List Mode (No args)
+    if pkg_name is empty:
+        # Scan for broken symlinks or overwritten files in DB
+        conflicts = find_conflicting_files_in_db()
+        print(conflicts)
+        return
+
+    # 2. Swap Mode
+    target_pkg = pkg_name
+
+    # Verify the package actually owns the conflicting files
+    if not is_installed(target_pkg):
+        abort("Package not installed")
+
+    # Re-link logic
+    manifest = read_manifest(target_pkg)
+    for file in manifest:
+        # Force creation of symlink, overwriting existing
+        if file_is_symlink(file) or file_is_binary(file):
+            link_file_to_root(file)
+
+    update_choices_db(target_pkg)
+    print("Swapped to " + target_pkg)
+```
 
 #### build
 
@@ -135,6 +181,42 @@ Additionally, before packages are built, any missing dependencies are
 attempted to be installed, and if no binary for the package exists, then
 they are to be added to the build queue as well.
 
+##### algorithm
+
+```
+function cmd_build(packages):
+dependencies = resolve_dependencies(packages)
+
+    for pkg in dependencies:
+        if pkg is installed and versions_match:
+            continue
+
+        # 1. Source Acquisition
+        sources = parse_sources_file(pkg)
+        for src in sources:
+            if not exists_in_cache(src):
+                download_source(src)
+                verify_checksum(src) # Abort on mismatch
+
+        # 2. Preparation
+        extract_sources_to_build_dir()
+        run_hook("pre-build", pkg)
+
+        # 3. Compilation
+        # Execute 'build' script with args: $dest_dir, $version, $release
+        execute_build_script(pkg, dest_dir)
+
+        # 4. Packaging
+        if dest_dir is empty:
+            abort("Build script did not install any files")
+
+        strip_binaries(dest_dir) # Optional: strip debug symbols
+        generate_manifest(dest_dir) # List of all files owned by pkg
+        create_tarball(pkg, dest_dir)
+
+        run_hook("post-build", pkg)
+```
+
 #### checksum
 
 The `checksum` command is responsible for creating the checksum file for
@@ -146,17 +228,105 @@ and kiss attempts to generate a checksum file.
 If ran with 1 argument, the first package in KISS\_PATH which matches the provided
 argument will have it's checksum file generated.
 
+##### algorithm
+
+```
+function cmd_checksum(packages):
+    for pkg in packages:
+        sources = parse_sources_file(pkg)
+        hashes = []
+
+        for src in sources:
+            file_path = download_source(src)
+            hash = calculate_b3sum(file_path)
+            hashes.append(hash)
+
+        write_checksums_file(pkg, hashes)
+        print("Generated checksums for " + pkg)
+```
+
 #### download
 
 The `download` command is responsible for downloading the sources of ports.
 If ran with 1+ arguments, the package manager attempts to download the remote
-sources for each of the packages that were supplied.
+sources for each of the packages that were supplied. It must handle the logic
+of skipping existing sources to avoid redundant downloads.
+
+##### algorithm
+
+```
+function cmd_download(packages):
+    for pkg in packages:
+        repo_dir = pkg_find(pkg)
+        sources = parse_sources_file(repo_dir)
+
+        for src in sources:
+            if is_remote(src):
+                dest = derive_cache_path(src)
+
+                if not file_exists(dest):
+                    log("Downloading " + src)
+                    perform_fetch(src, dest)
+                else:
+                    log("Cached " + src)
+
+            # Validation (Optional but recommended for strict implementations)
+            verify_checksum_single(pkg, src, dest)
+```
 
 #### install
 
+##### algorithm
+
+```
+function cmd_install(packages):
+    for pkg in packages:
+        tarball = locate_tarball(pkg)
+        manifest_new = read_manifest_from_tarball(tarball)
+
+        # 1. Conflict Resolution
+        for file in manifest_new:
+            if file_exists_on_disk(file):
+                owner = find_owner_in_db(file)
+                if owner != pkg and owner != null:
+                    abort("File conflict detected with " + owner)
+
+        # 2. Installation
+        run_hook("pre-install", pkg)
+
+        extract_tarball_to_root(tarball, "$KISS_ROOT/")
+        register_package_in_db(pkg) # Move metadata to /var/db/kiss/
+
+        run_hook("post-install", pkg)
+```
+
 #### list
 
+When ran with 0 arguments, will return all currently installed packages.
+Otherwise, each argument is checked to see if it is installed, if so the version number is printed.
+
+##### algorithm
+
+```
+function cmd_list(packages):
+    # Database Root: /var/db/kiss/
+
+    if packages is empty:
+        # List ALL installed packages
+        packages = list_directories_in(DB_ROOT)
+
+    for pkg in packages:
+        if not directory_exists(DB_ROOT + pkg):
+            print("Package '" + pkg + "' not installed")
+            continue
+
+        read_version_file(DB_ROOT + pkg + "/version")
+        # Format: name version-release
+        print(pkg + " " + version + "-" + release)
+```
+
 #### preferred
+
 
 #### remove
 
@@ -171,7 +341,38 @@ that they were provided to the package manager.
 The `remove` command can be forced to remove a package, with disregard whether
 the package manager thinks it can be removed, by setting `KISS_FORCE` equal to **1**.
 
+##### algorithm
+
+```
+function cmd_remove(packages):
+    for pkg in packages:
+        # 1. Reverse Dependency Check
+        requirers = find_packages_depending_on(pkg)
+        if requirers is not empty and KISS_FORCE != 1:
+            abort("Package is required by: " + requirers)
+
+        # 2. Deletion
+        run_hook("pre-remove", pkg)
+
+        manifest = read_installed_manifest(pkg)
+        for file in manifest:
+            delete_file(file)
+            # Prune empty parent directories recursively
+            rmdir_recursive(parent_of(file))
+
+        remove_db_entry(pkg)
+```
+
 #### search
+
+##### algorithm
+
+```
+function cmd_search(query):
+    # Standard glob match
+    matches = glob("$KISS_PATH/*" + query + "*")
+    print(matches)
+```
 
 #### update
 
@@ -182,10 +383,52 @@ which belongs to a git repository, and if it does, then the new changes are pull
 Directories which do not belong to a git repository have no special code, they are simply
 skipped over.
 
+##### algorithm
+
+```
+function cmd_update():
+    run_hook("pre-update")
+
+    for repo_dir in $KISS_PATH:
+        if is_git_repo(repo_dir):
+            git_pull(repo_dir)
+            print("Updated " + repo_dir)
+
+    run_hook("post-update")
+```
+
 #### upgrade
 
 The `upgrade` command is responsible for building the new version of packages and installing them.
 
+##### algorithm
+
+```
+function cmd_upgrade():
+    update_list = []
+
+    # Compare installed versions vs repo versions
+    for pkg in installed_packages:
+        repo_ver = get_version_from_repo(pkg)
+        installed_ver = get_version_from_db(pkg)
+
+        if repo_ver > installed_ver:
+            update_list.append(pkg)
+
+    if update_list is not empty:
+        cmd_build(update_list)
+        cmd_install(update_list)
+```
+
 #### version
 
 The `version` command simply prints out the version of the package manager to standard output.
+
+##### algorithm
+
+```
+function cmd_version():
+    # Must output the strict version string of the Package Manager itself
+    print(KISS_VERSION)
+    exit(0)
+```

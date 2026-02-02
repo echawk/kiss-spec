@@ -21,6 +21,27 @@ upgrading of said packages. Additionally, this naming scheme keeps the
 actual process version control agnostic, so if mercurial or fossil sources
 were supported in the future, they could also be added to this scheme.
 
+The relevant commands to get the commit sha for each of the respective
+vc sources are as follows:
+
+### git
+
+```sh
+git rev-parse HEAD
+```
+
+
+### hg
+
+```sh
+hg id -i
+```
+
+### fossil
+```sh
+fossil info . | awk '/^checkout/ {print $2}'
+```
+
 ## Implementors
 
 

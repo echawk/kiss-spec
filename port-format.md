@@ -1,115 +1,167 @@
-## Package Format
+# KISS port format
 
-This section of the document will document and specify the different files
-that go into defining a KISS package port.
+## 1. Scope and authority
 
-### version
+This document is the normative definition of the repository recipe files that
+form a KISS port. The package-manager specification defines how recipes are
+resolved, built into archives, installed, and recorded; it refers here instead
+of repeating these file formats.
 
-The `version` file is a plain text file (or a symbolic link to such a
-file) whose first line contains the version and release of the port.
+All paths in this document are beneath a repository package directory whose
+basename is the package name. The complete recipe directory is copied into the
+binary package's installed metadata during a build.
 
-For example, a file containing the following:
+## 2. Common text rules
 
-```
-1.0.4 3
-```
+KISS metadata is line-oriented. Newline separates records and shell whitespace
+separates fields. Blank and comment records have the file-specific behavior
+defined below. Portable metadata uses no NUL bytes, embedded newlines, or
+whitespace within a field.
 
-Would be read to mean that the package is on version 1.0.4, with 3 signifying
-the third release.
+The current format performs no variable or marker substitution. The obsolete
+syntax is documented only in the historical VERSION-markers document.
 
-Generally, releases only ought to occur if a dependency of the package in
-question breaks the installed package, thus necessitating a rebuild. Or
-if there is additional functionality enabled/disabled.
+## 3. `version`
 
-### sources
+`version` is REQUIRED. Its first line has exactly two whitespace-separated
+fields:
 
-The `sources` file is a plain text file (or a symbolic link to such a
-file) whose text contains a *source* that the package needs for it to
-build.
-
-The sources file will be divided on a line by line basis. Each line
-indicates a unique source. Each source can optionally specify a directory
-that it will then be extracted or copied into during the build of the package.
-
-Package source types are split into two general categories: remote & local.
-
-Local sources can either be an absolute path on the file system, such as
-`/path/to/package/source.file_extension` or can be a relative path
-such as `files/source-file`.
-
-Remote sources can either be URL to a remote file, or can be the link
-to a git repo, provided that the URL is appropriately prefixed with the
-string `git+`.
-
-The `@` and `#` are used to separate the url of the repository
-from either the commit or branch that should be checked out. Otherwise, if
-that part of the source is blank, the HEAD of the repository is fetched instead.
-
-It should be noted that there is no difference between `@` and `#`
-when it comes to the internals of the package manager, it is merely a stylistic
-choice.
-
-Here is an example sources file:
-
-```
-https://github.com/godotengine/godot/archive/refs/tags/4.2.0-stable.tar.gz
-git+https://github.com/SCons/scons scons/
-patches/gcc.patch
+```text
+VERSION RELEASE
 ```
 
-### depends
+`RELEASE` MUST be a nonempty decimal integer for portable repositories.
+`VERSION` MUST be nonempty and MUST NOT contain whitespace, `/`, or `@`.
 
-The `depends` file contains a list of all of the dependencies for
-the port, separated by newlines. Dependencies in this package can be marked
-as a "make" dependency, indicating that the package is only required by
-the port at build time, and can be removed after the package has been built.
-Otherwise, dependencies are assumed to be runtime dependencies, which cannot
-be removed when the package is installed.
+The package manager treats both fields as opaque strings. It performs no
+semantic version ordering. An upgrade is detected by string inequality of the
+combined `VERSION-RELEASE` value.
 
-It is important to note that there is no way to indicate optional dependencies
-in this scheme.
+For example, `1.0.4 3` denotes upstream version `1.0.4`, package release `3`.
+A release is conventionally incremented when packaging changes require a
+rebuild without a new upstream version.
 
-Here is an example depends file:
+## 4. `build`
 
+`build` is REQUIRED and executable. It is run directly, not through an
+implicitly selected shell, with two arguments:
+
+1. the absolute package DESTDIR;
+2. `VERSION`.
+
+`RELEASE` is not passed. The working directory is the package's private build
+directory after source extraction. A build script MUST install only beneath
+DESTDIR and MUST return zero on success.
+
+The build process environment and the surrounding build pipeline are defined
+in sections 10.3 and 10.4 of the package-manager specification.
+
+## 5. `sources`
+
+`sources` is optional. Each line is read as two fields:
+
+```text
+SOURCE [DESTINATION]
 ```
+
+Leading and separating shell whitespace is ignored by field parsing. The
+second field receives the remainder of the line. Valid producer files SHOULD
+use no whitespace within either value. Trailing `/` characters are removed
+from `DESTINATION`. A line whose first field begins with `#`, and a blank line,
+has no source payload.
+
+Source forms, tested in this order, are:
+
+1. `git+URL`, optionally ending in `@REF` or `#REF`;
+2. any string containing `://`, treated as a remote file URL;
+3. a directory relative to the recipe;
+4. an absolute directory;
+5. a regular file relative to the recipe;
+6. an absolute regular file.
+
+An unrecognized local path is fatal. `@` and `#` have identical meaning for a
+git source; the suffix is fetched as the shallow ref. With no suffix, the
+remote default `HEAD` is fetched.
+
+`DESTINATION`, when present, selects a subdirectory inside the package build
+directory and participates in the persistent source-cache path.
+
+Example:
+
+```text
+https://example.org/project-1.0.tar.gz
+git+https://example.org/project.git#v1.0 project
+files/config.h config
+```
+
+Source resolution, caching, hooks, verification, and extraction are defined in
+section 9 of the package-manager specification.
+
+## 6. `checksums`
+
+`checksums` is required when `sources` contains at least one
+checksum-eligible source. It contains one record for each checksum-eligible
+source, in source order. Git sources, directory sources, comments, and blank
+lines have no record. A record is either:
+
+- a lowercase 66-hex-character BLAKE3 digest (33 output bytes); or
+- `SKIP`.
+
+Only the first whitespace-separated field is compared. New checksums are
+generated using:
+
+```sh
+b3sum -l 33 FILE...
+```
+
+Sixty-four-character checksum records are recognized as obsolete SHA-256 and
+cause source verification to fail with a migration diagnostic. `SKIP` skips
+the comparison but does not skip acquiring the corresponding source.
+
+The `checksum` command regenerates the whole file and does not preserve
+existing `SKIP` records. If there are no eligible sources, an existing
+`checksums` file is left unchanged.
+
+## 7. `depends`
+
+`depends` is optional. Each nonblank, noncomment line is:
+
+```text
+PACKAGE [make]
+```
+
+One-field entries are runtime dependencies. A second field exactly equal to
+`make` is a build-only dependency. Other second-field values are reserved and
+MUST NOT be produced.
+
+Dependencies are mandatory; the format has no optional-dependency syntax.
+Package repositories MUST form a directed acyclic graph. The package-manager
+dependency algorithm is defined in section 8 of its specification.
+
+Example:
+
+```text
 python
 meson make
 util-linux
 ```
 
-### checksums
+## 8. Package-local hooks and marker files
 
-The `checksums` file contains the b3sums for each source in the
-sources file.
+- `post-install`, when a regular executable file in installed metadata, runs
+  after a successful install.
+- `pre-remove`, when a regular executable file in installed metadata, runs
+  before removal.
+- A non-executable file of either name is skipped with a warning.
+- `nostrip` disables stripping only when it exists at the top level of the
+  extracted build directory. A repository-side `nostrip` is normally copied
+  there as a local source; its mere presence beside `build` does not disable
+  stripping.
 
-Each line in the checksums file corresponds to a line in the sources file.
+Package-local hooks are run inside a `chroot` rooted at `KISS_ROOT` (or `/`),
+with `KISS_ROOT` set to the empty string, as user `root`, and with no command
+arguments. Their path inside the chroot is the corresponding path under
+`/var/db/kiss/installed/P`.
 
-If you would like to skip the checksumming of a source, you can replace
-the corresponding line with `SKIP` and the package manager will not
-validate the checksum of that source.
-
-### pre-remove
-
-The `pre-remove` file is an optional file and is executed
-immediately before a package is removed. It's only requirement is that
-it be marked as executable.
-
-There is one argument provided, the package name.
-
-### post-install
-
-The `post-install` file is an optional file and is executed
-immediately after a package is installed. It's only requirement is that
-it be marked as executable.
-
-There is one argument provided, the package name.
-
-### build
-
-The `build` file is responsible for building the port.
-The only requirement of the build file is that it be marked as an executable.
-
-The build file is given to arguments when executed:
-
-1. A temporary DESTDIR to install the package contents to.
-2. The version of the package being built.
+These package-local hooks are distinct from the external events configured by
+`KISS_HOOK`, whose complete interface is defined in the hooks document.

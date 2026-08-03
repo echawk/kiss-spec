@@ -1,26 +1,43 @@
-## KISS System
+# KISS system profile
 
-This section is still somewhat contested, as there has yet to
-be any discussion in the wider KISS community as to what
-*exactly* should be available on a system for it to be
-considered a KISS System.
+## 1. Scope and status
 
-Generally speaking, the following is expected:
+This document describes the broader host environment conventionally called a
+KISS System. It does not redefine package-manager behavior or maintain a
+second list of commands needed by `kiss`.
 
-* POSIX core utilites
-* git
-* curl
-* An implementation of SSL
-* gzip, bzip2, & xz
+The exact package-manager execution model, helper selection, compression
+methods, and external-command failure rules are normative in the
+[KISS package manager specification](kiss-package-manager.md), particularly
+sections 1.1, 3, 6.3, 9, 10, and 14.4. A host capable of running that contract
+satisfies the package-manager portion of this profile.
 
-It is conceivable to run kiss, the package manager, on any system
-that meets these requirements.
+The wider system profile remains informative because the KISS community has
+not established a complete, independently testable definition of a KISS
+System. Package-manager conformance and system-profile conformance are separate
+claims.
 
-It is important to note that this list is not yet comprehensive, and
-there is also an expectation that whatever system you are running
-the package manager on will also have access to a C compiler and
-additional POSIX amenities.
+## 2. Baseline profile
 
-In the future there will ideally be some effort put into making
-a package, which when installed, can verify that the system is
-compliant.
+In addition to satisfying the package-manager host requirements, a KISS System
+is expected to provide:
+
+- a POSIX-oriented userspace suitable for executing package build scripts;
+- a native build toolchain, including a C compiler; and
+- any additional tools required by the repositories selected in `KISS_PATH`.
+
+This profile deliberately does not require one named downloader, checksum
+program, privilege-escalation tool, ELF inspector, or compression suite. The
+package manager permits several implementations of those facilities and
+defines their selection rules in its environment-variable contract.
+
+Repository requirements are open-ended. Being able to execute the package
+manager does not imply that the host can build every available port.
+
+## 3. Verification
+
+There is currently no standalone system-profile verifier. Package-manager
+implementations should use the conformance matrix in section 18 of the package
+manager specification. A future system verifier should test this profile plus
+the requirements of a declared repository set, rather than copying a static
+utility list into this document.

@@ -11,10 +11,12 @@ case "$1" in
     *)
         : > gen.tex
         for f in *.md; do
-            lowdown -T latex "$f" > "${f%.*}.tex"
+            lowdown -T latex "$f" \
+				| sed 's|section{|section*{|g' \
+					  > "${f%.*}.tex"
             echo "\\input{${f%.*}.tex}" >> gen.tex
         done
 
-        cluttex -e pdflatex kiss.tex
+		tectonic kiss.tex
         ;;
 esac

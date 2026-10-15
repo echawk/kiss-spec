@@ -1,4 +1,24 @@
-## Sandboxed Builds
+# Proposal: sandboxed builds
+
+## Status and specification integration
+
+**Status:** Non-normative proposal; current builds rely on the recipe's social
+DESTDIR isolation rule and are not sandboxed.
+
+**Integration points:**
+
+- Insert sandbox construction into package-manager section 10.3 before source
+  extraction and build-script execution, and define the changed build
+  environment in section 10.4.
+- Add any configuration switch to the public environment contract in section
+  3.1.
+- Adopt the `kiss-system` inventory proposal into the KISS system profile and
+  package-manager state layout first.
+
+Sandboxing must preserve the port-format build arguments and external hook
+ordering unless this proposal explicitly amends those canonical interfaces.
+
+## Proposal
 
 Provide the user the option to perform the building of packages in a temporary chroot.
 This will prevent builds from picking up random dependencies, and make for a more
@@ -9,7 +29,7 @@ Relevant Codeberg Issue: [108](https://codeberg.org/kiss-community/repo/issues/1
 ### Setup Chroot
 
 NOTE: The below algorithm depends on the existence and usage of the `kiss-system` package
-which is also a proposal in it's own right.
+which is also a proposal in its own right.
 
 ```sh
 setup_hermetic_root() {
@@ -24,7 +44,7 @@ setup_hermetic_root() {
     #    We use 'cat' to combine them.
     #    We filter for existing files to prevent cpio errors on stale manifest entries.
     for dep in $deps kiss-system; do
-        cat "$KISS_ROOT/var/db/kiss/$dep/manifest"
+        cat "$KISS_ROOT/var/db/kiss/installed/$dep/manifest"
     done | 
     
     # 3. The Optimization
@@ -55,4 +75,4 @@ widely adopted.
 
 ### kiss-ng
 
-Is planning on using [landlock](landlock.io) to achieve build isolation.
+Is planning on using [Landlock](https://landlock.io/) to achieve build isolation.

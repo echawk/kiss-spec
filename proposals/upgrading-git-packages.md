@@ -1,4 +1,24 @@
-## Upgrading "git" packages.
+# Proposal: upgrading moving version-control sources
+
+## Status and specification integration
+
+**Status:** Non-normative proposal; current `upgrade` compares only recipe
+`VERSION-RELEASE` strings.
+
+**Integration points:**
+
+- Define moving versus pinned VCS records in section 5 of the KISS port format.
+- Record the resolved commit in generated package metadata under
+  package-manager section 6.1.
+- Add the proposed commands to section 7.1 and their acquisition behavior to
+  section 9.1.
+- Extend upgrade selection in section 14.5, or explicitly keep the separate
+  `vc-update` and `vc-upgrade` command family proposed below.
+
+Any future Mercurial or Fossil support also depends on the additional
+version-control-sources proposal.
+
+## Proposal
 
 Currently, git packages will not receive updates through the normal
 `kiss update` and `kiss upgrade` commands. Instead, responsibility falls
@@ -48,7 +68,7 @@ fossil info . | awk '/^checkout/ {print $2}'
 Snapshot Metadata: When a git package is installed, write the commit hash to the database:
 
 ```sh
-git -C "$src_dir" rev-parse HEAD > "$KISS_ROOT/var/db/kiss/$pkg/commit"
+git -C "$src_dir" rev-parse HEAD > "$KISS_ROOT/var/db/kiss/installed/$pkg/commit"
 ```
 
 The `vc-update` Command: This command should not download the repo. It should query the remote.
@@ -62,9 +82,9 @@ cmd_vc_update() {
     # This filters out 'stable' packages that just happen to use git sources.
 
     # We use 'grep' to scan the DB.
-    # /var/db/kiss/*/version -> match "^git"
+    # /var/db/kiss/installed/*/version -> match "^git"
 
-    candidates=$(grep -l "^git" "$KISS_ROOT/var/db/kiss/"*/version)
+    candidates=$(grep -l "^git" "$KISS_ROOT/var/db/kiss/installed/"*/version)
 
     for ver_file in $candidates; do
         pkg_dir="${ver_file%/version}"
@@ -126,5 +146,4 @@ check_git_update() {
 ```
 
 ## Implementors
-
 
